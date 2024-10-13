@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
-import * as THREE from 'three';
 import SearchResults from '../components/SearchResults';
-import ErrorAlert from '../components/ErrorAlert';
 import { searchAPI } from '../services/api';
 import logger from '../services/logger';
-import { validateEmail, validateIP } from '../utils/validations';
+import { validateEmail, validateIP, validatePhoneNumber } from '../utils/validations';
 import ErrorPopup from '../components/ErrorPopup'; // Assuming you have an ErrorPopup component
 import { useNavigate } from 'react-router-dom';
+import { Button, Spinner } from 'react-bootstrap';
 
 
 const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
@@ -18,7 +17,7 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
     const loadingCanvasRef = useRef(null); // For loading animation
 
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    const [selectedOption, setSelectedOption] = useState('email');
+    const [selectedOption, setSelectedOption] = useState('Email');
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [error, setError] = useState(null);
@@ -211,34 +210,12 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
     }, []);
 
     const toggleDropdown = () => {
-        setDropdownOpen(!dropdownOpen);
-        if (!dropdownOpen) {
-            gsap.to(dropdownRef.current, {
-                height: "auto",
-                opacity: 1,
-                duration: 0.5,
-                ease: "power3.out",
-                onStart: () => {
-                    dropdownRef.current.style.display = "block";
-                },
-            });
-        } else {
-            gsap.to(dropdownRef.current, {
-                height: 0,
-                opacity: 0,
-                duration: 0.5,
-                ease: "power3.out",
-                onComplete: () => {
-                    dropdownRef.current.style.display = "none";
-                },
-            });
-        }
+        setDropdownOpen(prev => !prev);
     };
-
     // Search API Request
     const handleSearch = useCallback(async () => {
         if (!isLoggedIn) {
-            navigate("./login")
+            navigate("/login");
         } else {
             let isValid = true;
 
@@ -268,10 +245,39 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
             if (!isValid) return; // Stop search if validation fails
 
             setMoveToTop(true); // Move elements to top
+
             try {
+                let formattedOption;
+                switch (selectedOption) {
+                    case "IP":
+                        formattedOption = "ip"
+                        break;
+                    case "Username":
+                        formattedOption = "username"
+                        break;
+                    case "Password":
+                        formattedOption = "password"
+                        break;
+                    case "Address":
+                        formattedOption = "address"
+                        break;
+                    case "Phone Number":
+                        formattedOption = "phone"
+                        break;
+                    case "Email":
+                        formattedOption = "email"
+                        break;
+                }
+
                 setLoading(true);
-                const res = await searchAPI(query, selectedOption, searchType); // Pass the search type to API
-                setResults(res.data);
+                try {
+                    const res = await searchAPI(query, formattedOption, searchType); // Pass the search type to API
+                    setResults(res);
+                } catch (error) {
+                    console.error('error:', error.message);
+                    setError(error.response ? error.response.data.message : error.message);
+                }
+
             } catch (err) {
                 logger.error(`Error in search: ${err.message}`);
                 setError('An error occurred while fetching search results.');
@@ -280,7 +286,7 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
                 setLoading(false);
             }
         }
-    }, [query, selectedOption, searchType, isLoggedIn]);
+    }, [query, selectedOption, searchType, isLoggedIn, selectedOption]);
 
     // Handle option selection
     const handleOptionSelect = (option) => {
@@ -293,6 +299,12 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
         navigate('/'); // Navigate to SearchPage on logout
     }
 
+
+    const handleChange = (event) => {
+        setResults([]);
+        setSearchType(event.target.value);
+    };
+
     return (
         <div className="relative flex flex-col justify-center items-center h-screen bg-gray-900">
             {/* Error Popup */}
@@ -301,9 +313,16 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
             {/* Popup loading animation */}
             {loading && (
                 <div className="absolute top-0 left-0 flex justify-center items-center w-full h-full bg-black bg-opacity-50 z-50">
-                    <div className="p-5 bg-gray-800 rounded-lg shadow-lg">
-                        <canvas ref={loadingCanvasRef} className="mx-auto"></canvas>
-                        <p className="text-gray-300 text-center mt-2">Loading...</p>
+                    <div className="flex flex-col items-center">
+                        <Spinner animation="grow" variant="primary" />
+                        <Spinner animation="grow" variant="secondary" />
+                        <Spinner animation="grow" variant="success" />
+                        <Spinner animation="grow" variant="danger" />
+                        <Spinner animation="grow" variant="warning" />
+                        <Spinner animation="grow" variant="info" />
+                        <Spinner animation="grow" variant="light" />
+                        <Spinner animation="grow" variant="dark" />
+                        <p className="text-gray-300 text-lg text-center mt-3">Loading...</p>
                     </div>
                 </div>
             )}
@@ -365,47 +384,22 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
 
                         <ul
                             ref={dropdownRef}
-                            className="absolute top-12 left-0 w-full bg-gray-800 border border-gray-700 rounded-lg opacity-0 overflow-hidden"
-                            style={{ display: "none", height: 0, maxHeight: '200px', overflowY: 'auto' }}
+                            className={`absolute top-12 left-0 w-full bg-gray-800 border border-gray-700 rounded-lg transition-all duration-300 ${dropdownOpen ? 'opacity-100' : 'opacity-0 overflow-hidden'}`}
                         >
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("email")}
-                            >
-                                Email
-                            </li>
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("IP")}
-                            >
-                                IP
-                            </li>
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("Username")}
-                            >
-                                Username
-                            </li>
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("Password")}
-                            >
-                                Password
-                            </li>
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("Phone Number")}
-                            >
-                                Phone Number
-                            </li>
-                            <li
-                                className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
-                                onClick={() => handleOptionSelect("Address")}
-                            >
-                                Address
-                            </li>
+                            {['Email', 'IP', 'Username', 'Password', 'Phone Number', 'Address'].map(option => (
+                                <li
+                                    key={option}
+                                    className="px-4 py-3 text-gray-300 hover:bg-gray-700 cursor-pointer"
+                                    onClick={() => handleOptionSelect(option)}
+                                >
+                                    {option}
+                                </li>
+                            ))}
                         </ul>
                     </div>
+
+                    {/* Search bar and button */}
+                    {/* ... search bar and button elements */}
 
                     {/* Search bar */}
                     <input
@@ -431,7 +425,7 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
                 </div>
 
                 {/* Local/Global Search Toggle */}
-                <div className="flex items-center mt-4 text-white">
+                <div className="flex items-center mt-4 text-white z-10">
                     <label className="mr-4">Search Type:</label>
                     <div className="flex items-center space-x-2">
                         <label>
@@ -440,7 +434,7 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
                                 name="searchType"
                                 value="local"
                                 checked={searchType === 'local'}
-                                onChange={(e) => setSearchType(e.target.value)}  // Fix: Ensure value is updated correctly
+                                onChange={handleChange}  // Fix: Ensure value is updated correctly
                                 className="mr-2"
                             />
                             Local Search
@@ -451,7 +445,7 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
                                 name="searchType"
                                 value="global"
                                 checked={searchType === 'global'}
-                                onChange={(e) => setSearchType(e.target.value)}  // Fix: Ensure value is updated correctly
+                                onChange={handleChange}  // Fix: Ensure value is updated correctly
                                 className="mr-2"
                             />
                             Global Search
@@ -462,8 +456,9 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
             </div>
 
             {/* Display Search Results */}
-            <div className="mt-10">
-                {results.length > 0 && <SearchResults results={results} />}
+            <div className="mt-10  result-main">
+                {results && (((!Array.isArray(results) && ((Array.isArray(results.results) && results.results.length > 0)) || ((results.local && Array.isArray(results.local.results) && results.local.results.length > 0) || (Array.isArray(results.global) && results.global.length > 0))))
+                    || (Array.isArray(results) && results.length > 0)) && <SearchResults results={results} isLocal={searchType === "local" ? true : false} />}
             </div>
         </div>
 
