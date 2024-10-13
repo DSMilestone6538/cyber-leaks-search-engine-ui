@@ -266,7 +266,8 @@ const SearchPage = ({ isLoggedIn, setIsLoggedIn }) => {
 
 
             if (searchType === "global") {
-                if (formattedOption === "ip" || formattedOption === "password" || formattedOption === "address") {
+                console.log('sdss : ', formattedOption)
+                if (formattedOption === "ip" || formattedOption === "password" || formattedOption == "address") {
                     setError(`Selected type of "${selectedOption}" is not available for Global search at the moment`);
                     setTimeout(() => setError(null), 2000);
                     isValid = false;
